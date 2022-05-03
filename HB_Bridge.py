@@ -52,6 +52,8 @@ import hb_const
 from dmr_utils import ambe_utils
 from dmr_utils.ambe_bridge import AMBE_HB
 
+from pei import pei_tetra
+
 # Does anybody read this stuff? There's a PEP somewhere that says I should do this.
 __author__     = 'Mike Zingman, N4IRR and Cortney T. Buffington, N0MJS'
 __copyright__  = 'Copyright (c) 2017 Mike Zingman N4IRR'
@@ -88,7 +90,7 @@ translate = TRANSLATE('config.file')
 
 class HB_BRIDGE(HBSYSTEM):
     
-    def __init__(self, _name, _config, _logger):
+    def __init__(self, _name, _config, _logger, pei):
         HBSYSTEM.__init__(self, _name, _config, _logger)
 
 
@@ -98,8 +100,10 @@ class HB_BRIDGE(HBSYSTEM):
 
         self.load_configuration(cli_args.BRIDGE_CONFIG_FILE)
 
-        self.hb_ambe = AMBE_HB(self, _name, _config, _logger, self._ambeRxPort)
+        self.hb_ambe = AMBE_HB(self, _name, _config, _logger, self._ambeRxPort, pei)
         self._sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+        
+        self.pei = pei
 
     def get_globals(self):
         return (subscriber_ids, talkgroup_ids, peer_ids)
@@ -202,6 +206,7 @@ if __name__ == '__main__':
     
     # Set up the signal handler
     def sig_handler(_signal, _frame):
+        pei.stop()
         logger.info('SHUTDOWN: HB_Bridge IS TERMINATING WITH SIGNAL %s', str(_signal))
         hblink_handler(_signal, _frame, logger)
         logger.info('SHUTDOWN: ALL SYSTEM HANDLERS EXECUTED - STOPPING REACTOR')
@@ -234,13 +239,16 @@ if __name__ == '__main__':
     if talkgroup_ids:
         logger.info('ID ALIAS MAPPER: talkgroup_ids dictionary is available')
         
+        
+    pei = pei_tetra(logger)
+  
     
     # HBlink instance creation
     logger.info('HBlink \'HB_Bridge.py\' (c) 2017 Mike Zingman N4IRR, N0MJS - SYSTEM STARTING...')
     logger.info('Version %s', __version__)
     for system in CONFIG['SYSTEMS']:
         if CONFIG['SYSTEMS'][system]['ENABLED']:
-            systems[system] = HB_BRIDGE(system, CONFIG, logger)
+            systems[system] = HB_BRIDGE(system, CONFIG, logger, pei)
             reactor.listenUDP(CONFIG['SYSTEMS'][system]['PORT'], systems[system], interface=CONFIG['SYSTEMS'][system]['IP'])
             logger.debug('%s instance created: %s, %s', CONFIG['SYSTEMS'][system]['MODE'], system, systems[system])
 
